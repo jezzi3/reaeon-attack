@@ -1,0 +1,140 @@
+<!doctype html>
+<input id="cell" type="number" min="8" step="1" value="48" />
+<label>Gap</label>
+<input id="gap" type="number" min="0" step="1" value="2" />
+</div>
+
+
+<div class="row">
+<label><input id="anchor" type="checkbox" checked /> Show anchor</label>
+</div>
+
+
+<div class="row">
+<button id="create">Create Grid</button>
+<button id="clear">Clear</button>
+</div>
+
+
+<div class="row">
+<label>Active color</label>
+<input id="activeColor" type="color" value="#ffdd57" />
+<label>Inactive opacity</label>
+<input id="inactiveOpacity" type="number" min="0" max="1" step="0.1" value="0.1" />
+</div>
+
+
+<div class="row">
+<button id="apply">Apply to Figma</button>
+<button id="export">Export SVG</button>
+</div>
+
+
+<div class="hint">Click cells to toggle. Center of the grid is the attacker tile.</div>
+<div id="grid"></div>
+
+
+<script>
+const nEl = document.getElementById('n');
+const cellEl = document.getElementById('cell');
+const gapEl = document.getElementById('gap');
+const anchorEl = document.getElementById('anchor');
+const gridEl = document.getElementById('grid');
+const activeColorEl = document.getElementById('activeColor');
+const inactiveOpacityEl = document.getElementById('inactiveOpacity');
+
+
+let N = parseInt(nEl.value, 10);
+let active = new Set(); // keys as "r,c"
+
+
+function buildGrid() {
+N = parseInt(nEl.value, 10);
+gridEl.style.gridTemplateColumns = `repeat(${N}, 24px)`;
+gridEl.innerHTML = '';
+active.clear();
+for (let r = 0; r < N; r++) {
+for (let c = 0; c < N; c++) {
+const div = document.createElement('div');
+div.className = 'cell';
+div.dataset.key = `${r},${c}`;
+div.addEventListener('click', () => {
+const k = div.dataset.key;
+if (active.has(k)) { active.delete(k); div.classList.remove('on'); }
+else { active.add(k); div.classList.add('on'); }
+});
+gridEl.appendChild(div);
+}
+}
+// pre-highlight center as anchor (not active by default)
+const center = Math.floor(N/2);
+const idx = center * N + center;
+gridEl.children[idx].style.outline = '2px solid #444';
+gridEl.children[idx].style.outlineOffset = '-2px';
+}
+
+
+buildGrid();
+
+
+nEl.addEventListener('change', buildGrid);
+
+
+document.getElementById('create').addEventListener('click', () => {
+parent.postMessage({ pluginMessage: {
+type: 'create-grid',
+n: parseInt(nEl.value, 10),
+cell: parseInt(cellEl.value, 10),
+gap: parseInt(gapEl.value, 10),
+showAnchor: anchorEl.checked
+} }, '*');
+});
+
+
+document.getElementById('clear').addEventListener('click', () => {
+active.forEach(k => {
+const el = [...gridEl.children].find(e => e.dataset.key === k);
+if (el) el.classList.remove('on');
+});
+active.clear();
+});
+
+
+document.getElementById('apply').addEventListener('click', () => {
+const list = [...active].map(k => {
+const [r,c] = k.split(',').map(Number); return { r, c };
+});
+parent.postMessage({ pluginMessage: {
+type: 'apply-grid',
+active: list,
+n: parseInt(nEl.value, 10),
+activeColor: activeColorEl.value,
+inactiveOpacity: parseFloat(inactiveOpacityEl.value)
+} }, '*');
+});
+
+
+document.getElementById('export').addEventListener('click', () => {
+parent.postMessage({ pluginMessage: { type: 'export-svg' } }, '*');
+});
+
+
+// Receive exported bytes and trigger a download from UI
+window.onmessage = (event) => {
+const msg = event.data.pluginMessage;
+if (msg && msg.type === 'svg-bytes') {
+const bytes = new Uint8Array(msg.bytes);
+const blob = new Blob([bytes], { type: 'image/svg+xml' });
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = 'attack-range.svg';
+document.body.appendChild(a);
+a.click();
+a.remove();
+URL.revokeObjectURL(url);
+}
+}
+</script>
+</body>
+</html>
