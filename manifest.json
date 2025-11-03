@@ -1,0 +1,8 @@
+{
+  "name": "Re:Aeon Attack Range Designer",
+  "id": "reaeon-attack-range-designer",
+  "api": "1.0.0",
+  "main": "https://yourdomain.com/code.js",
+  "ui": "https://yourdomain.com/ui.html",
+  "editorType": ["figma"]
+}
